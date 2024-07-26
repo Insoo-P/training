@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <p>hi</p>
+    <div id="app"></div> <!-- Vue.js 앱을 마운트할 요소 -->
+
+    <script>
+        class Reactive {
+            constructor(target) {
+                this.target = target;
+                this.effects = new Map();
+                return new Proxy(target, this.handler());
+            }
+        
+            handler() {
+                const self = this;
+                return {
+                    get(target, key, receiver) {
+                        if (!self.effects.has(key)) {
+                            self.effects.set(key, []);
+                        }
+                        // 등록된 효과를 호출
+                        self.effects.get(key).forEach(effect => effect());
+                        return Reflect.get(target, key, receiver);
+                    },
+                    set(target, key, value, receiver) {
+                        const result = Reflect.set(target, key, value, receiver);
+                        // 데이터가 변경되면 효과를 호출
+                        if (self.effects.has(key)) {
+                            self.effects.get(key).forEach(effect => effect());
+                        }
+                        return result;
+                    }
+                };
+            }
+        
+            effect(key, effectFn) {
+                if (!this.effects.has(key)) {
+                    this.effects.set(key, []);
+                }
+                this.effects.get(key).push(effectFn);
+            }
+        }
+        
+        // 사용 예제
+        const state = new Reactive({ message: 'Hello, Vue!' });
+        
+        // 데이터가 변경되면 UI를 업데이트하는 함수
+        state.effect('message', () => {
+            console.log(`Message updated to: ${state.target.message}`);
+        });
+        
+        state.target.message = 'Hello, World!'; // "Message updated to: Hello, World!"
+
+        class SimpleVue {
+            constructor(options) {
+                this.data = new Reactive(options.data());
+                this.template = options.template;
+                this.mount(options.el);
+            }
+        
+            mount(el) {
+                this.element = document.querySelector(el);
+                this.render();
+            }
+        
+            render() {
+                const html = this.template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => {
+                    return this.data.target[key] || '';
+                });
+                this.element.innerHTML = html;
+            }
+        }
+        
+        // 사용 예제
+        const app = new SimpleVue({
+            data() {
+                return { message: 'Hello, Vue!' };
+            },
+            template: '<div>{{ message }}</div>',
+            el: '#app'
+        });
+        
+        // 데이터가 변경되면 렌더링을 다시 호출하여 UI를 업데이트
+        app.data.effect('message', () => {
+            app.render();
+        });
+        
+        app.data.target.message = 'Hello, World!'; // UI 업데이트됨
+
+    </script>
+</body>
+</html>

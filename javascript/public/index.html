@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini Vue</title>
+  <style>
+    /* 간단한 스타일링 */
+    #app {
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <p>{{ message }}</p>
+    <input type="text" v-model="message">
+  </div>
+
+  <script>
+    // MiniVue 생성자 함수
+    function MiniVue(options) {
+      this.$data = options.data();
+      this.$el = document.querySelector(options.el);
+      this.$template = this.$el.innerHTML;
+
+      this.initReactivity();
+      this.render();
+    }
+
+    MiniVue.prototype.initReactivity = function() {
+      const self = this;
+      this.$data = new Proxy(this.$data, {
+        set(target, key, value) {
+          target[key] = value;
+          self.updateDOM(key);
+          return true;
+        }
+      });
+    };
+
+    MiniVue.prototype.render = function() {
+      let html = this.$template;
+
+      // {{ message }} 와 같은 템플릿을 데이터로 바인딩
+      for (const key in this.$data) {
+        const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+        html = html.replace(regex, this.$data[key]);
+      }
+
+      this.$el.innerHTML = html;
+
+      // v-model 디렉티브 처리
+      this.bindInput();
+    };
+
+    MiniVue.prototype.updateDOM = function(key) {
+      const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+      this.$el.innerHTML = this.$template.replace(regex, this.$data[key]);
+      this.bindInput();
+    };
+
+    MiniVue.prototype.bindInput = function() {
+      const inputs = this.$el.querySelectorAll('input[v-model]');
+      inputs.forEach(input => {
+        const key = input.getAttribute('v-model');
+        input.value = this.$data[key];
+        input.addEventListener('input', (event) => {
+          this.$data[key] = event.target.value;
+        });
+      });
+    };
+
+    // 사용 예제
+    const app = new MiniVue({
+      el: '#app',
+      data() {
+        return {
+          message: 'Hello, MiniVue!'
+        };
+      }
+    });
+  </script>
+</body>
+</html>
